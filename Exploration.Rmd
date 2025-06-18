@@ -1,0 +1,248 @@
+
+"Storm damage exploration"
+=================================
+author: "mbandi"
+----------------
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is mostly for myself, to keep track of my though process during the data analysis.
+
+### Load and read the data
+
+Download the data to the WD:
+
+```{r download}
+compressedFileName <- "repdata_data_StormData.csv.bz2"
+if(!file.exists(compressedFileName)) {
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", compressedFileName)
+}
+```
+
+Read the data:
+```{r read}
+rawData <- read.csv(compressedFileName, na.strings = "")
+str(rawData)
+```
+
+Documentation about the data downloaded from [National Weather Service](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [National Climatic Data Center Storm Events](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf) (14/06/2025) 
+
+
+#### Interesting columns
+BGN_DATE, END_DATE when end date is NA I'll assume it's the same as BGN_DATE  
+COUNTY and COUNTYNAME, notice same COUNTY can have different COUNTYNAME referenced (e.g. 0 -> WAZ003 | WAZ008 - 010 - 013)  
+STATE is not clear to me the meaning of the State_ column, so I'll use State, which seems to be postal abbreviation code for each state.  
+EVTYPE event type, seems it could be a factor  
+MAG magnitude may be useful, the meaning depends on the vent type  
+FATALITIES and INJURIES  
+PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP here DMG column is the numeric value with 3 representative digits and EXP is a char (K, M, B)  
+
+Keep the usefull columns and free some memory
+```{r subset data} 
+data <- subset(rawData, select = c(BGN_DATE, END_DATE, STATE, COUNTY, COUNTYNAME, EVTYPE, MAG, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP))
+rawData <- NULL
+```
+
+### Cleaning
+Parsing begin and end dates
+```{r cleanDates}
+library(dplyr)
+library(lubridate)
+library(stringr)
+data <- mutate(data, BGN_DATE = mdy_hms(BGN_DATE), END_DATE = mdy_hms(END_DATE))
+```
+
+```{r checkEvents}
+head(unique(data$EVTYPE), 50)
+```
+Event types are a bit too freestyle. I'll group them using the storm data table events in the National Weather Service documentation. There is also mixed event types in the EVTYPE column.
+
+I don't consider "Summary whatever month" a valid meteorological phenomena, so I'll change the instances of "Blizzard summary" to "Blizzard" and remove the others.
+
+I'll check the amount of damage with the events as is, because maybe I don't need to clean every event type and I can focus in the most significant ones.
+I do need to work around the K, M, B nomenclature.
+
+```{r calculatePropertyDamage}
+## If doing manual evaluation, this chunk can be ignored
+
+data <- mutate(data, propValue = ifelse(is.na(PROPDMGEXP), 0, ifelse(PROPDMGEXP == "K", PROPDMG*1e3, ifelse(PROPDMGEXP == "M", PROPDMG*1e6, ifelse(PROPDMGEXP == "B", PROPDMG*1e9, 0)))))
+data <- data <- mutate(data, cropValue = ifelse(is.na(CROPDMGEXP), 0, ifelse(CROPDMGEXP == "K", CROPDMG*1e3, ifelse(CROPDMGEXP == "M", CROPDMG*1e6, ifelse(CROPDMGEXP == "B", CROPDMG*1e9, 0)))))
+data <- mutate(data, totalValue = propValue + cropValue) ## property and crop value
+data <- data %>% mutate(year = year(BGN_DATE)) ## I want the mean by year and type of event
+data <- data %>% mutate(yearValue = sum(totalValue), .by = c(EVTYPE, year)) ## year total by type of event
+data <- data %>% mutate(yearEvtValueMean = mean(yearValue), .by = EVTYPE) ## year mean by type of event
+valueRanking <- data %>% group_by(EVTYPE) %>% filter(row_number()==1) %>% arrange(desc(yearEvtValueMean)) %>% select(EVTYPE, yearEvtValueMean) ## select one row for each group and sort by mean year damage
+```
+
+Maybe I'll do top 25 (cleaning categories, I mean).
+Similar analysis for people. Then I can clean the event types and do a similar calculation, this time with the correct data
+For the plots, maybe a barchar with the year mean of each type, and a year/damage line plot for maybe top 5 or 10
+
+```{r calculatePersonalDamage}
+## If doing manual evaluation, this chunk can be ignored
+
+data <- mutate(data, personalDamage = FATALITIES + INJURIES) ## property and crop value
+data <- data %>% mutate(yearPersonal = sum(personalDamage), .by = c(EVTYPE, year)) ## year total by type of event
+data <- data %>% mutate(yearEvtPersonalMean = mean(yearPersonal), .by = EVTYPE) ## year mean by type of event
+personalRanking <- data %>% group_by(EVTYPE) %>% filter(row_number()==1) %>% arrange(desc(yearEvtPersonalMean)) %>% select(EVTYPE, yearEvtPersonalMean) ## select one row for each group and sort by mean year personal damage
+```
+
+Probably I should have cleaned all the categories before doing the damage ranking
+The idea is to have a column for each event type, since is possible to have mixed events. So if there is a blizzard and a flood at the same time, we count that event for the blizzard event type and also for the flood event type. I had to manually check these values, since there is no easy way to parse a free text field. The file I used is >>>>>>>filename here<<<<<<<<
+```{r addEventTypesColumns}
+names <- make.names(
+    c(
+        "Astronomical Low Tide",
+        "Avalanche",
+        "Blizzard",
+        "Coastal Flood",
+        "Cold/Wind Chill",
+        "Debris Flow",
+        "Dense Fog",
+        "Dense Smoke",
+        "Drought",
+        "Dust Devil",
+        "Dust Storm",
+        "Excessive Heat",
+        "Extreme Cold/Wind Chill",
+        "Flash Flood",
+        "Flood",
+        "Frost/Freeze",
+        "Funnel Cloud",
+        "Freezing Fog",
+        "Hail",
+        "Heat",
+        "Heavy Rain",
+        "Heavy Snow",
+        "High Surf",
+        "High Wind",
+        "Hurricane Typhoon",
+        "Ice Storm",
+        "Lake-Effect Snow",
+        "Lakeshore Flood",
+        "Lightning",
+        "Marine Hail",
+        "Marine High Wind",
+        "Marine Strong Wind",
+        "Marine Thunderstorm Wind",
+        "Rip Current",
+        "Seiche",
+        "Sleet",
+        "Storm Surge/Tide",
+        "Strong Wind",
+        "Thunderstorm Wind",
+        "Tornado",
+        "Tropical Depression",
+        "Tropical Storm",
+        "Tsunami",
+        "Volcanic Ash",
+        "Waterspout",
+        "Wildfire",
+        "Winter Storm",
+        "Winter Weather"
+    ),
+    unique = TRUE
+)
+keywords <- list(
+    c("LOW TIDE", "BLOW-OUT TIDE"),
+    c("AVALANCHE"),
+    c("BLIZZARD"),
+    c("COASTAL FLOOD"),
+    c("WIND CHILL", "COLD"),
+    c("LANDSLIDE"),
+    c("FOG"),
+    c("SMOKE"),
+    c("DROUGHT"),
+    c("DUST DEVIL", "DUST DEVEL"),
+    c("DUST"),
+    c("EXCESSIVE HEAT"),
+    c("EXTREME COLD"),
+    c("FLASH FLOOD"),
+    c("FLOOD"),
+    c("FROST", "FREEZE"),
+    c("CLOUD") ,
+    c("FREEZING FOG", "ICE FOG"),
+    c("HAIL"),
+    c("HEAT"),
+    c("RAIN", "HEAVY SHOWER"),
+    c("SNOW"),
+    c("SURF"),
+    c("HIGH WIND"),
+    c("HURRICANE", "TYPHOON"),
+    c("ICE"),
+    c("LAKE-EFFECT SNOW", "LAKE EFFECT SNOW", "LAKE SNOW"),
+    c("LAKESHORE FLOOD"),
+    c("LIGHTNING"),
+    c("MARINE HAIL"),
+    c("MARINE HIGH WIND"),
+    c("MARINE STRONG WIND"),
+    c("MARINE THUNDERSTORM WIND", "MARINE TSTM WIND"),
+    c("RIP CURRENT"),
+    c("SEICHE"),
+    c("SLEET"),
+    c("STORM SURGE/TIDE", "HIGH TIDE"),
+    c("STRONG WIND"),
+    c("THUNDERSTORM WIND", "TSTM WIND", "THUNDERSNOW"),
+    c("TORNADO"),
+    c("TROPICAL DEPRESSION"),
+    c("TROPICAL STORM"),
+    c("TSUNAMI"),
+    c("VOLCANIC ASH", "VOLCANIC ERUPTION"),
+    c("WATERSPOUT"),
+    c("FIRE"),
+    c("WINTER STORM"),
+    c("WINTER WEATHER")
+)
+refCategories <- tibble (category = names, keywords = keywords)
+data[names] <- FALSE 
+
+## This function fills each category column with true when the EVTYPE matches
+matchEventTypes <- function(data, refCategories) {
+    for(i in rownames(refCategories)) {
+        eventTest <- refCategories[i,]$category
+        data[eventTest] <- apply(sapply(unlist(refCategories[refCategories$category == eventTest,]$keywords), grepl, data$EVTYPE), 1, any)
+    }
+    data
+}
+
+data  <- matchEventTypes(data, refCategories)
+```
+
+Now I can calculate the personal and property damage more accurately. I'm interested in the changes over time, so I'll group the events by year
+
+```{r calculateYearDamages}
+library(tidyr)
+## In case of manual evaluation, I repeat this so I don't need to run anything in the calculatePropertyDamage or calculatePersonalDamage code chunks
+data <- data %>% mutate(year = year(BGN_DATE), .before = END_DATE) ## I want the mean by year and type of event
+data <- mutate(data, propValue = ifelse(is.na(PROPDMGEXP), 0, ifelse(PROPDMGEXP == "K", PROPDMG*1e3, ifelse(PROPDMGEXP == "M", PROPDMG*1e6, ifelse(PROPDMGEXP == "B", PROPDMG*1e9, 0)))), .before = Astronomical.Low.Tide)
+data <- data <- mutate(data, cropValue = ifelse(is.na(CROPDMGEXP), 0, ifelse(CROPDMGEXP == "K", CROPDMG*1e3, ifelse(CROPDMGEXP == "M", CROPDMG*1e6, ifelse(CROPDMGEXP == "B", CROPDMG*1e9, 0)))), .before = Astronomical.Low.Tide)
+
+data <- mutate(data, valueEvent = propValue + cropValue, .before = Astronomical.Low.Tide) ## property and crop value
+data <- mutate(data, casualtiesEvent = FATALITIES + INJURIES, .before = Astronomical.Low.Tide) ## casualties
+
+## Create a new column with the correct event types, this duplicates some rows because there were multiple event types in the same EVTYPE entry
+data <- data %>% pivot_longer(Astronomical.Low.Tide:Winter.Weather, names_to = "eventType", values_to = "isEvent") %>% subset(isEvent == TRUE)
+data <- data %>% mutate(casualtiesYear = sum(casualtiesEvent), valueYear = sum(valueEvent), .by = c(eventType, year)) ## year total by type of event.
+data <- data %>% mutate(casualtiesMean = mean(casualtiesYear)/1e3, valueMean = mean(valueYear)/1e9, .by = eventType) ## year mean by type of event
+ranking <- data %>% group_by(eventType) %>% filter(row_number()==1) %>% arrange(eventType) %>% select(eventType, casualtiesMean, valueMean) ## select one row for each group and sort by event type
+```
+
+Before adding the year progression I'll plot the average worst events
+
+```{r plotAverageDamages}
+library(ggplot2)
+library(patchwork)
+
+valueBar <- ggplot(data = head(arrange(ranking, desc(valueMean)), 10)) + geom_bar(aes(x = eventType, y = valueMean, fill = eventType), stat = "identity") + labs(x = "", y = "Property Damage (billions)") + theme(axis.text.x=element_blank())
+
+casualtiesBar <- ggplot(data = head(arrange(ranking, desc(casualtiesMean)), 10)) + geom_bar(aes(x = eventType, y = casualtiesMean, fill = eventType), stat = "identity") + labs(x = "", y = "Casualties (thousands)") + theme(axis.text.x=element_blank())
+
+casualtiesBar + valueBar
+
+```
+
+From here I can select some type of events to focus on. I'll check the progression over time for tornado, hurricane, flood (includes flash flood), heat (includes excessive heat), lightning and thunderstorm wind.
+I need to subset the data for this events, then make it long to easily plot the total by year for casualties and property damage in two separate plots. The table should have a column with "casualty/property", year, event and total amount
+
