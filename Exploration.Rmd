@@ -258,5 +258,15 @@ events <- c("Tornado", "Hurricane.Typhoon", "Flood", "Heat", "Lightning", "Thund
 histData <- data %>% select(year, eventType, casualtiesYear, valueYear) %>% 
     unique %>%
     filter(eventType %in% events) %>% 
+    mutate(casualtiesYear = casualtiesYear/100, valueYear = valueYear/1e9) %>%
     pivot_longer(casualtiesYear:valueYear, names_to = "damageType", values_to = "damageAmount")
+
+ggplot(data=histData, aes(x=year, y=damageAmount)) + 
+    geom_line(aes(colour = eventType), size = 1) +
+    facet_grid(damageType ~ ., labeller = as_labeller(c(casualtiesYear = "Casualties (hundreds)", valueYear = "Value (billions)"))) + 
+    coord_cartesian(ylim = c(0, 75)) +
+    labs(title = "Year Damage by Event Type", x = "Year", y = "Damage", colour = "Event Type") +
+    scale_x_continuous(limits = c(1950, 2011), breaks = seq(1950, 2011, 10)) +
+    theme(legend.position = "bottom") +
+    scale_color_hue(labels=c("Flood", "Heat", "Hurricane", "Lightning", "Thunderstorm/Wind", "Tornado"))
 ```
