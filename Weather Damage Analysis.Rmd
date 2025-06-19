@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 The purpose of this report is to analyse the impact of different weather events in the health of the population as well as the economic impact in the United States between the years 1950 and 2011. The hypothesis we want to investigate is if there are a type of weather events that have significantly worst impact in the population's health and a higher economic impact, so if preemptive measures are to be taken, this efforts can have the biggest impact. The data was obtained from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database and comprises details of different weather events. From the data we found that the biggest impact seems to be related with extreme wind and water phenomena, like tornadoes, hurricanes and floods, but also heat has a particularly negative effect in the population's health.
 
 ### Data Processing
-Although the original data was gathered from the NOAA, the raw data utilized for this report was hosted in the Reproducible Research Coursera's course. Aditional documentation can be found in [National Weather Service](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [National Climatic Data Center Storm Events](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+Although the original data was gathered from the NOAA, the raw data utilized for this report was hosted in the Reproducible Research Coursera's course. Additional documentation can be found in [National Weather Service](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [National Climatic Data Center Storm Events](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
 
 #### Downloading and reading the data
 
@@ -242,7 +242,7 @@ histData <- data %>% select(year, eventType, casualtiesYear, valueYear) %>%
     pivot_longer(casualtiesYear:valueYear, names_to = "damageType", values_to = "damageAmount")
 
 ggplot(data=histData, aes(x=year, y=damageAmount)) + 
-    geom_line(aes(colour = eventType), size = 1) +
+    geom_line(aes(colour = eventType), linewidth = 1) +
     facet_grid(damageType ~ ., labeller = as_labeller(c(casualtiesYear = "Casualties (hundreds)", valueYear = "Value (billions)"))) + 
     coord_cartesian(ylim = c(0, 75)) +
     labs(title = "Year Damage by Event Type", x = "Year", y = "Damage", colour = "Event Type") +
