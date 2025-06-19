@@ -1,18 +1,23 @@
-
-"Storm damage exploration"
+"Weather Damage Between 1950 and 2011"
 =================================
 author: "mbandi"
+date: "2025-06-18"
 ----------------
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This is mostly for myself, to keep track of my though process during the data analysis.
+### Synopsis
+The purpose of this report is to analyse the impact of different weather events in the health of the population as well as the economic impact in the United States between the years 1950 and 2011. The hypothesis we want to investigate is if there are a type of weather events that have significantly worst impact in the population's health and a higher economic impact, so if preemptive measures are to be taken, this efforts can have the biggest impact. The data was obtained from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database and comprises details of different weather events. From the data we found that the biggest impact seems to be related with extreme wind and water phenomena, like tornadoes, hurricanes and floods, but also heat has a particularly negative effect in the population's health.
 
-### Load and read the data
+### Data Processing
+Although the original data was gathered from the NOAA, the raw data utilized for this report was hosted in the Reproducible Research Coursera's course. Aditional documentation can be found in [National Weather Service](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [National Climatic Data Center Storm Events](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
 
-Download the data to the WD:
+#### Downloading and reading the data
+
+Download the data:
 
 ```{r download}
 compressedFileName <- "repdata_data_StormData.csv.bz2"
@@ -22,76 +27,48 @@ if(!file.exists(compressedFileName)) {
 ```
 
 Read the data:
+Read the data:
 ```{r read}
 rawData <- read.csv(compressedFileName, na.strings = "")
 str(rawData)
 ```
 
-Documentation about the data downloaded from [National Weather Service](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [National Climatic Data Center Storm Events](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf) (14/06/2025) 
 
+We're interested in health and economic damage, so we'll calculate the average impact each year for the different types of events across the U.S. Thus, the most relevant variables are:
 
-#### Interesting columns
-BGN_DATE, END_DATE when end date is NA I'll assume it's the same as BGN_DATE  
-COUNTY and COUNTYNAME, notice same COUNTY can have different COUNTYNAME referenced (e.g. 0 -> WAZ003 | WAZ008 - 010 - 013)  
-STATE is not clear to me the meaning of the State_ column, so I'll use State, which seems to be postal abbreviation code for each state.  
-EVTYPE event type, seems it could be a factor  
-MAG magnitude may be useful, the meaning depends on the vent type  
-FATALITIES and INJURIES  
-PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP here DMG column is the numeric value with 3 representative digits and EXP is a char (K, M, B)  
+BGN_DATE to group the data by year
+EVTYPE event type, this is a free text field that we'll clean later  
+FATALITIES and INJURIES, we'll count them together as casualties
+PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP, damage to property and crop. Here DMG column is the numeric value with 3 representative digits and EXP is a char (K, M, B) representing the magnitude.  
 
-Keep the usefull columns and free some memory
+Keep the useful columns and free some memory
+
 ```{r subset data} 
 library(dplyr)
-data <- select(.data = rawData, BGN_DATE, END_DATE, STATE, COUNTY, COUNTYNAME, EVTYPE, MAG, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+data <- select(.data = rawData, BGN_DATE, EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
 rawData <- NULL
 ```
 
-### Cleaning
-Parsing begin and end dates
+#### Cleaning the data
+
+Let's start by converting BGN_DATE from char to date
+
 ```{r cleanDates}
 library(lubridate)
-library(stringr)
-data <- mutate(data, BGN_DATE = mdy_hms(BGN_DATE), END_DATE = mdy_hms(END_DATE))
+data <- mutate(data, BGN_DATE = mdy_hms(BGN_DATE))
 ```
+
+Now let's take a look to the event types
 
 ```{r checkEvents}
 length(unique(data$EVTYPE))
 head(unique(data$EVTYPE), 50)
 ```
-Event types are a bit too freestyle. I'll group them using the storm data table events in the National Weather Service documentation. There is also mixed event types in the EVTYPE column.
 
-I don't consider "Summary whatever month" a valid meteorological phenomena, so I'll change the instances of "Blizzard summary" to "Blizzard" and remove the others. [Later on, this was not done, since matching by event name already discarded this entries and matched blizzard]
+We can see there are some entries that represent multiple events and some entries do not follow the National Weather Service instructions for the event names. We'll convert the event's to the names instructed in the [NWS documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf), table 1. 
+To accomplish this we've compared the keywords in the NWS event table with the EVTYPE unique entries to match them as best as we could. E.g. Since not all entries for "Fog" contain the formula "Dense Fog", we'll group all fog instances in "Dense fog" by matching the keywords "FOG" and "VOG". This will include also "Freezing Fog" in the "Dense Fog" category. If more in-depth analysis are made, this should be kept in mind.
+The file used for the categories matching can be found [here](https://github.com/mbandi/RepRes_Storm_Analysis/blob/main/categoriesMatcher.txt)
 
-I'll check the amount of damage with the events as is, because maybe I don't need to clean every event type and I can focus in the most significant ones.
-I do need to work around the K, M, B nomenclature.
-
-```{r calculatePropertyDamage}
-## If doing manual evaluation, this chunk can be ignored
-
-data <- mutate(data, propValue = ifelse(is.na(PROPDMGEXP), 0, ifelse(PROPDMGEXP == "K", PROPDMG*1e3, ifelse(PROPDMGEXP == "M", PROPDMG*1e6, ifelse(PROPDMGEXP == "B", PROPDMG*1e9, 0)))))
-data <- data <- mutate(data, cropValue = ifelse(is.na(CROPDMGEXP), 0, ifelse(CROPDMGEXP == "K", CROPDMG*1e3, ifelse(CROPDMGEXP == "M", CROPDMG*1e6, ifelse(CROPDMGEXP == "B", CROPDMG*1e9, 0)))))
-data <- mutate(data, totalValue = propValue + cropValue) ## property and crop value
-data <- data %>% mutate(year = year(BGN_DATE)) ## I want the mean by year and type of event
-data <- data %>% mutate(yearValue = sum(totalValue), .by = c(EVTYPE, year)) ## year total by type of event
-data <- data %>% mutate(yearEvtValueMean = mean(yearValue), .by = EVTYPE) ## year mean by type of event
-valueRanking <- data %>% group_by(EVTYPE) %>% filter(row_number()==1) %>% arrange(desc(yearEvtValueMean)) %>% select(EVTYPE, yearEvtValueMean) ## select one row for each group and sort by mean year damage
-```
-
-Maybe I'll do top 25 (cleaning categories, I mean).
-Similar analysis for people. Then I can clean the event types and do a similar calculation, this time with the correct data
-For the plots, maybe a barchar with the year mean of each type, and a year/damage line plot for maybe top 5 or 10
-
-```{r calculatePersonalDamage}
-## If doing manual evaluation, this chunk can be ignored
-
-data <- mutate(data, personalDamage = FATALITIES + INJURIES) ## property and crop value
-data <- data %>% mutate(yearPersonal = sum(personalDamage), .by = c(EVTYPE, year)) ## year total by type of event
-data <- data %>% mutate(yearEvtPersonalMean = mean(yearPersonal), .by = EVTYPE) ## year mean by type of event
-personalRanking <- data %>% group_by(EVTYPE) %>% filter(row_number()==1) %>% arrange(desc(yearEvtPersonalMean)) %>% select(EVTYPE, yearEvtPersonalMean) ## select one row for each group and sort by mean year personal damage
-```
-
-Probably I should have cleaned all the categories before doing the damage ranking
-The idea is to have a column for each event type, since is possible to have mixed events. So if there is a blizzard and a flood at the same time, we count that event for the blizzard event type and also for the flood event type. I had to manually check these values, since there is no easy way to parse a free text field. The file I used is [here](https://github.com/mbandi/RepRes_Storm_Analysis/blob/main/categoriesMatcher.txt)
 ```{r addEventTypesColumns}
 names <- make.names(
     c(
@@ -211,12 +188,14 @@ matchEventTypes <- function(data, refCategories) {
 data  <- matchEventTypes(data, refCategories)
 ```
 
-Now I can calculate the personal and property damage more accurately. I'm interested in the changes over time, so I'll group the events by year
+
+#### Processing
+We have entries with multiple events (e.g. "THUNDERSTORM WINDS/ FLOOD"). Since we cannot separate the damage corresponding to each event, we'll count the whole damage for the thunderstorm, and the whole damage for the flood. We'll calculate the casualties and economic damage for each "merged" event.
 
 ```{r calculateYearDamages}
 library(tidyr)
-## In case of manual evaluation, I repeat this so I don't need to run anything in the calculatePropertyDamage or calculatePersonalDamage code chunks
-data <- data %>% mutate(year = year(BGN_DATE), .before = END_DATE) ## I want the mean by year and type of event
+data <- data %>% mutate(year = year(BGN_DATE), .before = EVTYPE) ## I want the mean by year and type of event
+## Here we fix the values with the magnitude column
 data <- mutate(data, propValue = ifelse(is.na(PROPDMGEXP), 0, ifelse(PROPDMGEXP == "K", PROPDMG*1e3, ifelse(PROPDMGEXP == "M", PROPDMG*1e6, ifelse(PROPDMGEXP == "B", PROPDMG*1e9, 0)))), .before = Astronomical.Low.Tide)
 data <- data <- mutate(data, cropValue = ifelse(is.na(CROPDMGEXP), 0, ifelse(CROPDMGEXP == "K", CROPDMG*1e3, ifelse(CROPDMGEXP == "M", CROPDMG*1e6, ifelse(CROPDMGEXP == "B", CROPDMG*1e9, 0)))), .before = Astronomical.Low.Tide)
 
@@ -236,7 +215,7 @@ ranking <- dataMean %>% group_by(eventType) %>%
     mutate(casualtiesMean = casualtiesMean/100, valueMean = valueMean/1e9) ## select one row for each group and sort by event type. Also, fix scale to hundreds casualties and billions damage
 ```
 
-Before adding the year progression I'll plot the average worst events
+We can plot the 10 events which have the most impact in population's health and economic damage every year, on average.
 
 ```{r plotAverageDamages}
 library(ggplot2)
@@ -250,8 +229,8 @@ casualtiesBar + valueBar
 
 ```
 
-From here I can select some type of events to focus on. I'll check the progression over time for tornado, hurricane, flood (includes flash flood), heat (includes excessive heat), lightning and thunderstorm wind.
-I need to subset the data for this events, then make it long to easily plot the total by year for casualties and property damage in two separate plots. The table should have a column with "casualty/property", year, event and total amount
+From this data it seems that the events with higher impact every year are tornadoes, hurricanes, floods (includes flash flood), heat (includes excessive heat), lightning and thunderstorm wind.
+Let's see how the damages of each of this events looks like over the years.
 
 ```{r plotAnualDamages}
 events <- c("Tornado", "Hurricane.Typhoon", "Flood", "Heat", "Lightning", "Thunderstorm.Wind")
@@ -271,3 +250,10 @@ ggplot(data=histData, aes(x=year, y=damageAmount)) +
     theme(legend.position = "bottom") +
     scale_color_hue(labels=c("Flood", "Heat", "Hurricane", "Lightning", "Thunderstorm/Wind", "Tornado"))
 ```
+
+For the casualties, we can see that heat and flood have some spikes, signaling some years with particularly intense events, while thunderstorms follow a smoother line. But clearly, the most dangerous weather event for the population are tornadoes.
+
+For the economic damage, we find two extreme events, the hurricane of 2005 and the floods of 2006.They're also the events that tend to cause most of the economic damage year after year, except maybe for the tornadoes breakout of 2011.
+
+### Results
+We find that the events with the most impact on the population are tornadoes, hurricanes, floods and heat. Strong winds and water related measures may work to mitigate the negative effects of multiple of this events, but further analysis to study the real causes of the damage this events create should be done. This study has also the limitation with the weather event categories, maybe a more in-depth study could find a better way to categorize the data and draw more precise conclusions. Specific analysis of each event type, including seasonality, areas typically affected, and changes in the demographics of the area as well as the amount of infrastructure developed over time could be useful both to measure effectivity of current measures and to help to decide future measures.
