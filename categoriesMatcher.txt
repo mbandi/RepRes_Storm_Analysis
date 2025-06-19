@@ -1,0 +1,48 @@
+Astronomical Low Tide 		-> LOW TIDE, BLOW-OUT TIDE (from what I read, they seem close enough)
+Avalanche 					-> AVALANCHE
+Blizzard 					-> BLIZZARD
+Coastal Flood 				-> COASTAL FLOOD
+Cold/Wind Chill 			-> WIND CHILL, COLD
+Debris Flow 				-> LANDSLIDE
+Dense Fog 					-> FOG, VOG, any fog 
+Dense Smoke 				-> SMOKE
+Drought 					-> DROUGHT
+Dust Devil 					-> DUST DEVIL, DUST DEVEL
+Dust Storm 					-> DUST
+Excessive Heat 				-> EXCESSIVE HEAT
+Extreme Cold/Wind Chill 	-> EXTREME COLD since there is an occurrence of extreme cold without the wind chill
+Flash Flood 				-> FLASH FLOOD
+Flood 						-> FLOOD and any flood (e.g. flash, coastal) will be grouped here
+Frost/Freeze 				-> FROST, FREEZE
+Funnel Cloud 				-> CLOUD 
+Freezing Fog 				-> FREEZING FOG, ICE FOG
+Hail 						-> HAIL
+Heat 						-> HEAT
+Heavy Rain 					-> RAIN, HEAVY SHOWER (not just "shower" to avoid matching with snow showers)
+Heavy Snow 					-> SNOW (this should match also thundersnow, since they're two simultaneous events, I think is ok)
+High Surf 					-> SURF
+High Wind 					-> HIGH WIND
+Hurricane (Typhoon) 		-> HURRICANE, TYPHOON
+Ice Storm 					-> ICE since there is no cattegory for ice without storm, patchy ice, black ice, etc. will fall in this category
+Lake-Effect Snow 			-> LAKE-EFFECT SNOW, LAKE EFFECT SNOW, LAKE SNOW will be in this category
+Lakeshore Flood 			-> LAKESHORE FLOOD
+Lightning 					-> LIGHTNING
+Marine Hail 				-> MARINE HAIL
+Marine High Wind 			-> MARINE HIGH WIND
+Marine Strong Wind 			-> MARINE STRONG WIND
+Marine Thunderstorm Wind 	-> MARINE THUNDERSTORM WIND, MARINE TSTM WIND im asssuming TSTM = THUNDERSTORM
+Rip Current 				-> RIP CURRENT
+Seiche 						-> SEICHE
+Sleet 						-> SLEET
+Storm Surge/Tide 			-> STORM SURGE/TIDE, HIGH TIDE
+Strong Wind 				-> STRONG WIND
+Thunderstorm Wind 			-> THUNDERSTORM WIND, TSTM WIND, THUNDERSNOW 
+Tornado 					-> TORNADO
+Tropical Depression 		-> TROPICAL DEPRESSION
+Tropical Storm 				-> TROPICAL STORM
+Tsunami 					-> TSUNAMI
+Volcanic Ash 				-> VOLCANIC ASH, VOLCANIC ERUPTION Im putting eruptions together with ash because I don't want to change the NWS categories
+Waterspout 					-> WATERSPOUT also, there is an instance of DUST DEVIL WATERSPOUT, is that something like a mudnado? I've just searched for it and it seems to be a thing in a game called Infinite craft [mudnado] (https://infinitecraft.net/blog/how-to-make-mudnado-in-infinite-craft-6-steps/)
+Wildfire 					-> FIRE, there are many different inputs
+Winter Storm 				-> WINTER STORM
+Winter Weather 				-> WINTER WEATHER (WINTER WEATHER MIX sounds like a 2000 music album)

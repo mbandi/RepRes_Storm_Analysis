@@ -55,11 +55,12 @@ data <- mutate(data, BGN_DATE = mdy_hms(BGN_DATE), END_DATE = mdy_hms(END_DATE))
 ```
 
 ```{r checkEvents}
+length(unique(data$EVTYPE))
 head(unique(data$EVTYPE), 50)
 ```
 Event types are a bit too freestyle. I'll group them using the storm data table events in the National Weather Service documentation. There is also mixed event types in the EVTYPE column.
 
-I don't consider "Summary whatever month" a valid meteorological phenomena, so I'll change the instances of "Blizzard summary" to "Blizzard" and remove the others.
+I don't consider "Summary whatever month" a valid meteorological phenomena, so I'll change the instances of "Blizzard summary" to "Blizzard" and remove the others. [Later on, this was not done, since matching by event name already discarded this entries and matched blizzard]
 
 I'll check the amount of damage with the events as is, because maybe I don't need to clean every event type and I can focus in the most significant ones.
 I do need to work around the K, M, B nomenclature.
@@ -152,7 +153,7 @@ keywords <- list(
     c("COASTAL FLOOD"),
     c("WIND CHILL", "COLD"),
     c("LANDSLIDE"),
-    c("FOG"),
+    c("FOG", "VOG"),
     c("SMOKE"),
     c("DROUGHT"),
     c("DUST DEVIL", "DUST DEVEL"),
